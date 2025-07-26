@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/gotcha/static/css/main.288abe76.css",
+    "main.js": "/gotcha/static/js/main.ae3f9ce9.js",
+    "index.html": "/gotcha/index.html",
+    "main.288abe76.css.map": "/gotcha/static/css/main.288abe76.css.map",
+    "main.ae3f9ce9.js.map": "/gotcha/static/js/main.ae3f9ce9.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.288abe76.css",
+    "static/js/main.ae3f9ce9.js"
+  ]
+}
