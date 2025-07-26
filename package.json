@@ -1,7 +1,7 @@
 {
-  "name": "gotcha-calculator",
+  "name": "gotcha",
   "version": "1.0.0",
-  "description": "A static weighted-pulls calculator for gacha games",
+  "description": "gotcha! - weighted pulls calculator",
   "homepage": "https://yourusername.github.io/gotcha",
   "private": true,
   "dependencies": {
