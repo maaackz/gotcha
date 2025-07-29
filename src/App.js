@@ -14,7 +14,7 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale);
 function App() {
   const [entries, setEntries] = useState([]);
   const [newEntry, setNewEntry] = useState({ name: '', weight: 1, amount: 1, probability: '' });
-  const [newEntryMethod, setNewEntryMethod] = useState('weight'); // 'weight', 'amount', or 'probability'
+  const [newEntryMethod, setNewEntryMethod] = useState('amount'); // 'amount', 'probability', or 'weight'
   const [totalPulls, setTotalPulls] = useState(100);
   const [useTotalPulls, setUseTotalPulls] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -145,20 +145,29 @@ function App() {
     setNewEntry({ name: '', weight: 1, amount: 1, probability: '' });
   };
 
-  // Helper function to get probability as fraction for a specific entry
+  // Helper function to get probability as fraction for a specific entry (exact decimal)
   const getProbabilityFraction = (entry) => {
     const currentEntries = entries.filter(e => e.collection === currentCollection);
     const totalWeight = currentEntries.reduce((sum, e) => sum + e.weight, 0);
     
-    if (totalWeight === 0) return '0';
+    if (totalWeight === 0) return 0;
     
     const probability = entry.weight / totalWeight;
+    if (probability === 0) return 0;
+    if (probability === 1) return 1;
+    
+    return probability;
+  };
+
+  // Helper function to get probability as rounded fraction for display
+  const getProbabilityFractionDisplay = (entry) => {
+    const probability = getProbabilityFraction(entry);
     if (probability === 0) return '0';
     if (probability === 1) return '1';
     
-    // Calculate the actual denominator based on total weight
-    const denominator = Math.round(1 / probability);
-    return `1/${denominator}`;
+    const denominator = Math.round((1 / probability) * 100) / 100;
+    // Only show decimal places if it's not a clean whole number
+    return `1/${denominator % 1 === 0 ? denominator.toFixed(0) : denominator.toFixed(2)}`;
   };
 
   // Helper function to convert fraction to decimal
@@ -519,40 +528,13 @@ function App() {
                 onChange={(e) => setNewEntryMethod(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
               >
-                <option value="weight">Weight</option>
                 <option value="amount">Amount</option>
                 <option value="probability">Probability</option>
+                <option value="weight">Weight</option>
               </select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Weight Field */}
-              <div className={newEntryMethod !== 'weight' ? 'opacity-50' : ''}>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Weight</label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="number"
-                    min="0.1"
-                    max="100"
-                    step="0.1"
-                    value={Math.round(newEntry.weight * 100) / 100}
-                    onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) || 0.1 })}
-                    disabled={newEntryMethod !== 'weight'}
-                    className="w-20 px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  />
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="100"
-                    step="0.1"
-                    value={newEntry.weight}
-                    onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) })}
-                    disabled={newEntryMethod !== 'weight'}
-                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
-              
               {/* Amount Field */}
               <div className={newEntryMethod !== 'amount' ? 'opacity-50' : ''}>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Amount</label>
@@ -578,6 +560,33 @@ function App() {
                   disabled={newEntryMethod !== 'probability'}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
+              </div>
+              
+              {/* Weight Field */}
+              <div className={newEntryMethod !== 'weight' ? 'opacity-50' : ''}>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Weight</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="100"
+                    step="0.1"
+                    value={Math.round(newEntry.weight * 100) / 100}
+                    onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) || 0.1 })}
+                    disabled={newEntryMethod !== 'weight'}
+                    className="w-20 px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="100"
+                    step="0.1"
+                    value={newEntry.weight}
+                    onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) })}
+                    disabled={newEntryMethod !== 'weight'}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
             </div>
             
@@ -844,7 +853,7 @@ function App() {
                             <input
                               type="text"
                               placeholder="e.g., 1/6"
-                              defaultValue={getProbabilityFraction(entry)}
+                              defaultValue={getProbabilityFractionDisplay(entry)}
                               onBlur={(e) => updateEntryByFraction(entry.id, e.target.value)}
                               onKeyPress={(e) => e.key === 'Enter' && updateEntryByFraction(entry.id, e.target.value)}
                               onClick={handleInputClick}
@@ -852,8 +861,12 @@ function App() {
                               autoFocus
                             />
                           ) : (
-                            <span className="cursor-pointer hover:text-blue-600 transition-colors font-medium text-slate-700" onClick={() => { setEditingId(entry.id); setEditingField('probability'); }}>
-                              {getProbabilityFraction(entry)}
+                            <span 
+                              className="cursor-pointer hover:text-blue-600 transition-colors font-medium text-slate-700" 
+                              onClick={() => { setEditingId(entry.id); setEditingField('probability'); }}
+                              title={`Exact probability: ${(getProbabilityFraction(entry) * 100).toFixed(4)}% (1/${(1/getProbabilityFraction(entry)).toFixed(6)})`}
+                            >
+                              {getProbabilityFractionDisplay(entry)}
                             </span>
                           )}
                         </td>
