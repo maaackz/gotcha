@@ -14,6 +14,7 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale);
 function App() {
   const [entries, setEntries] = useState([]);
   const [newEntry, setNewEntry] = useState({ name: '', weight: 1, amount: 1, probability: '' });
+  const [newEntryMethod, setNewEntryMethod] = useState('weight'); // 'weight', 'amount', or 'probability'
   const [totalPulls, setTotalPulls] = useState(100);
   const [useTotalPulls, setUseTotalPulls] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -24,6 +25,19 @@ function App() {
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkEditValues, setBulkEditValues] = useState({ weight: '', amount: '', probability: '' });
   const [loaded, setLoaded] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Show welcome modal on first visit
+  useEffect(() => {
+    if (!localStorage.getItem('gotcha-welcome-shown')) {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  const handleCloseWelcome = () => {
+    setShowWelcome(false);
+    localStorage.setItem('gotcha-welcome-shown', 'true');
+  };
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -88,27 +102,36 @@ function App() {
   }, [entries, collections, totalPulls, useTotalPulls, currentCollection, loaded]);
 
   const addEntry = () => {
-    if (!newEntry.name.trim() || (newEntry.weight <= 0 && !newEntry.amount && !newEntry.probability)) {
-      alert('Please enter a valid name and either a positive weight, amount, or probability');
+    if (!newEntry.name.trim()) {
+      alert('Please enter a valid name');
       return;
     }
 
-    // Calculate weight based on desired amount or probability if provided
+    // Validate the selected method has a valid value
+    let isValid = false;
     let calculatedWeight = newEntry.weight;
     
-    if (newEntry.probability && newEntry.probability.trim()) {
-      // If probability is provided, calculate weight from it
+    if (newEntryMethod === 'weight' && newEntry.weight > 0) {
+      isValid = true;
+      calculatedWeight = newEntry.weight;
+    } else if (newEntryMethod === 'amount' && newEntry.amount > 0) {
+      isValid = true;
+      calculatedWeight = Math.max(0.1, Math.round(newEntry.amount * 100) / 100);
+    } else if (newEntryMethod === 'probability' && newEntry.probability && newEntry.probability.trim()) {
       const decimal = fractionToDecimal(newEntry.probability);
       if (decimal !== null) {
+        isValid = true;
         const currentEntries = entries.filter(entry => entry.collection === currentCollection);
         const otherTotalWeight = currentEntries.reduce((sum, entry) => sum + entry.weight, 0);
         calculatedWeight = (decimal * otherTotalWeight) / (1 - decimal);
         calculatedWeight = Math.max(0.1, Math.round(calculatedWeight * 100) / 100);
       }
-    } else if (newEntry.amount > 0) {
-      // If amount is provided, use it directly as the weight
-      // This makes it more intuitive - amount 10 = weight 10
-      calculatedWeight = Math.max(0.1, Math.round(newEntry.amount * 100) / 100);
+    }
+
+    if (!isValid) {
+      const methodNames = { weight: 'weight', amount: 'amount', probability: 'probability' };
+      alert(`Please enter a valid ${methodNames[newEntryMethod]}`);
+      return;
     }
 
     const entry = {
@@ -155,6 +178,8 @@ function App() {
     const decimal = fractionToDecimal(fraction);
     if (decimal === null) {
       alert('Please enter a valid fraction (e.g., 1/6, 1/72)');
+      setEditingId(null);
+      setEditingField(null);
       return;
     }
     
@@ -392,28 +417,36 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 py-10 px-2 md:px-0">
+      {/* Welcome Modal */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border-2 border-blue-200">
+            <div className="text-5xl mb-4" aria-label="wave">👋</div>
+            <h2 className="text-2xl font-bold mb-2 text-blue-700">Welcome to <span className="lowercase font-extrabold text-purple-600">gotcha!</span></h2>
+            <p className="text-lg text-slate-700 mb-4">This app helps you figure out your chances when pulling for things—like prizes, cards, or anything with different odds. Just add each thing, give it a name and how likely it is, and see your chances and results!</p>
+            <ul className="text-left text-base text-slate-600 mb-4 list-disc list-inside">
+              <li>Add each item you might pull for (like a prize or card).</li>
+              <li>Set how likely each one is (by amount, weight, or chance like 1/6).</li>
+              <li>See your odds and how many you might get if you pull a lot!</li>
+            </ul>
+            <button
+              onClick={handleCloseWelcome}
+              className="mt-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-lg font-semibold shadow hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              autoFocus
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Main App Content */}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="text-center mb-12">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3 pb-2">
             gotcha!
           </h1>
           <p className="text-slate-600 text-lg">Weighted Pulls Calculator</p>
-          <button
-            onClick={() => {
-              console.log('Current localStorage:', {
-                entries: localStorage.getItem('gotcha-entries'),
-                collections: localStorage.getItem('gotcha-collections'),
-                totalPulls: localStorage.getItem('gotcha-total-pulls'),
-                useTotalPulls: localStorage.getItem('gotcha-use-total-pulls'),
-                currentCollection: localStorage.getItem('gotcha-current-collection')
-              });
-              console.log('Current state:', { entries, collections, totalPulls, useTotalPulls, currentCollection });
-            }}
-            className="mt-2 text-xs text-slate-500 hover:text-slate-700 underline"
-          >
-            Debug localStorage
-          </button>
         </header>
 
         {/* Collections Management */}
@@ -465,23 +498,36 @@ function App() {
         {/* Add Entry Form */}
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-8">
           <h2 className="text-xl font-semibold text-slate-800 mb-6">Add Entry</h2>
-          <div className="space-y-4">
-            {/* Name Field - Full Width */}
+          <div className="space-y-6">
+            {/* Name Field */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Entry Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Name</label>
               <input
                 type="text"
-                placeholder="e.g., SSR Character"
+                placeholder="Enter item name"
                 value={newEntry.name}
                 onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
               />
             </div>
-            
-            {/* Three Fields in a Row */}
+
+            {/* Method Selection */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Input Method</label>
+              <select
+                value={newEntryMethod}
+                onChange={(e) => setNewEntryMethod(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+              >
+                <option value="weight">Weight</option>
+                <option value="amount">Amount</option>
+                <option value="probability">Probability</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Weight Field */}
-              <div>
+              <div className={newEntryMethod !== 'weight' ? 'opacity-50' : ''}>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Weight</label>
                 <div className="flex gap-2 items-center">
                   <input
@@ -491,7 +537,8 @@ function App() {
                     step="0.1"
                     value={Math.round(newEntry.weight * 100) / 100}
                     onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) || 0.1 })}
-                    className="w-20 px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center"
+                    disabled={newEntryMethod !== 'weight'}
+                    className="w-20 px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
                   <input
                     type="range"
@@ -500,13 +547,14 @@ function App() {
                     step="0.1"
                     value={newEntry.weight}
                     onChange={(e) => setNewEntry({ ...newEntry, weight: parseFloat(e.target.value) })}
-                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
+                    disabled={newEntryMethod !== 'weight'}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
               
               {/* Amount Field */}
-              <div>
+              <div className={newEntryMethod !== 'amount' ? 'opacity-50' : ''}>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Amount</label>
                 <input
                   type="number"
@@ -514,19 +562,21 @@ function App() {
                   step="1"
                   value={Math.round(newEntry.amount)}
                   onChange={(e) => setNewEntry({ ...newEntry, amount: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center"
+                  disabled={newEntryMethod !== 'amount'}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
               </div>
               
               {/* Probability Field */}
-              <div>
+              <div className={newEntryMethod !== 'probability' ? 'opacity-50' : ''}>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Probability</label>
                 <input
                   type="text"
                   placeholder="e.g., 1/6"
                   value={newEntry.probability}
                   onChange={(e) => setNewEntry({ ...newEntry, probability: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center"
+                  disabled={newEntryMethod !== 'probability'}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
